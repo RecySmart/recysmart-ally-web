@@ -56,3 +56,23 @@ export type User = z.infer<typeof UserAPIResponseSchema>;
 export type LogInResponse = z.infer<typeof LogInResponseSchema>;
 export type Reward = z.infer<typeof RewardSchema>;
 export type PartnerInfo = z.infer<typeof PartnerInfoSchema>;
+
+export const RedeemCouponSchema = z.object({
+    code: z.string()
+        .min(1, "El código del cupón es requerido")
+        .trim()
+        .toUpperCase(),
+});
+
+export const RedeemCouponResponseSchema = z.object({
+    success: z.boolean(),
+    message: z.string(),
+    couponCode: z.string(),
+    rewardTitle: z.string(),
+    clientName: z.string(),
+    redeemedAt: z.string(),
+});
+
+export type RedeemCouponFormData = z.infer<typeof RedeemCouponSchema>;
+export type RedeemCouponResponse = z.infer<typeof RedeemCouponResponseSchema>;
+

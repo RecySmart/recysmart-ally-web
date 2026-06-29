@@ -1,63 +1,124 @@
 "use client";
 
-import { useSession } from "next-auth/react";
-import { Ticket, Scan, ShieldCheck } from "lucide-react";
+import { Ticket, ShieldCheck } from "lucide-react";
+import { toast } from "sonner";
+import { StatCard } from "@/components/ui";
+import { RedeemCouponCard } from "./_components/RedeemCouponCard";
 
 export default function DashboardPOS() {
-  const { data: session } = useSession();
+  // Mock rewards
+  const rewards = [
+    {
+      id: "1",
+      title: "Café Americano",
+      cost: "200 Pts",
+      stockText: "38 / 50",
+      progress: 76,
+      color: "bg-brand-green",
+      badge: null,
+    },
+    {
+      id: "2",
+      title: "Galleta de Avena",
+      cost: "150 Pts",
+      stockText: "4 / 10",
+      progress: 40,
+      color: "bg-action-orange",
+      badge: "Poco Stock",
+    },
+    {
+      id: "3",
+      title: "20% Dscto. Factura",
+      cost: "800 Pts",
+      stockText: "Ilimitado",
+      progress: 100,
+      color: "bg-blue-500",
+      badge: null,
+    },
+  ];
 
   return (
     <div className="space-y-6">
       
-      {/* Quick POS Info banner */}
-      <div className="bg-card border border-border p-6 rounded-2xl shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-lg font-bold text-text-primary">Canjear Recompensa</h2>
-          <p className="text-sm text-gray-400">Pídele al cliente que muestre el código QR en su celular.</p>
-        </div>
-        <div className="flex gap-2">
-          <button className="h-10 px-4 bg-brand-green hover:bg-brand-green/90 text-white font-semibold text-xs rounded-xl flex items-center gap-2 cursor-pointer shadow-xs transition-all">
-            <ShieldCheck className="w-4 h-4" />
-            Validar Código
-          </button>
-          <button className="h-10 px-4 bg-canvas-base hover:bg-canvas-base/80 border border-border text-text-primary font-semibold text-xs rounded-xl flex items-center gap-2 cursor-pointer transition-all">
-            <Scan className="w-4 h-4" />
-            Usar Cámara
-          </button>
-        </div>
-      </div>
-
-      {/* Main Grid Mockup */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {/* Main Content Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         
-        {/* Placeholder form */}
-        <div className="md:col-span-2 bg-card border border-border p-8 rounded-2xl shadow-xs min-h-[300px] flex flex-col items-center justify-center text-center space-y-4">
-          <div className="w-16 h-16 bg-brand-green/10 rounded-full flex items-center justify-center">
-            <Ticket className="text-brand-green w-8 h-8" />
-          </div>
-          <div>
-            <p className="text-gray-400 text-sm">Ingrese el código de cupón de 12 dígitos aquí</p>
-            <div className="mt-4 border-2 border-dashed border-border rounded-xl p-6 bg-canvas-base text-xl font-bold tracking-widest text-gray-500">
-              EJ: RECY-A1B2C3
-            </div>
-          </div>
+        {/* Left: Canjear Recompensa Decoupled Card */}
+        <div className="lg:col-span-2">
+          <RedeemCouponCard />
         </div>
 
-        {/* Side Panel Stats */}
-        <div className="bg-card border border-border p-6 rounded-2xl shadow-xs space-y-4">
-          <h3 className="text-sm font-bold text-text-primary uppercase tracking-widest">Resumen de Hoy</h3>
+        {/* Right Panel: Stats & Recompensas Activas */}
+        <div className="space-y-6 col-span-1">
           
-          <div className="space-y-3">
-            <div className="p-4 bg-canvas-base rounded-xl border border-border">
-              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block">Canjes de Hoy</span>
-              <span className="text-2xl font-extrabold text-text-primary mt-1 block">14</span>
-            </div>
-            
-            <div className="p-4 bg-canvas-base rounded-xl border border-border">
-              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block">Puntos Recaudados</span>
-              <span className="text-2xl font-extrabold text-text-primary mt-1 block">2,800 Pts</span>
-            </div>
+          {/* Top Panel Stats row */}
+          <div className="grid grid-cols-2 gap-4">
+            <StatCard
+              title="Canjes de Hoy"
+              value="14"
+              icon={Ticket}
+            />
+            <StatCard
+              title="Puntos Recaudados"
+              value="2,800"
+              icon={ShieldCheck}
+            />
           </div>
+
+          {/* Recompensas Activas Card */}
+          <div className="bg-card border border-border p-6 rounded-2xl shadow-xs space-y-4">
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="text-sm font-bold text-text-primary">Recompensas Activas</h3>
+                <p className="text-[10px] text-gray-400 font-medium">Inventario disponible en la App</p>
+              </div>
+            </div>
+
+            {/* List */}
+            <div className="space-y-4 pt-1">
+              {rewards.map((reward) => (
+                <div key={reward.id} className="p-4 bg-canvas-base rounded-2xl border border-border space-y-3 relative">
+                  
+                  {/* Title block */}
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h4 className="text-sm font-bold text-text-primary">{reward.title}</h4>
+                      <span className="text-xs text-brand-green font-semibold">{reward.cost}</span>
+                    </div>
+                    {reward.badge && (
+                      <span className="text-[9px] font-bold px-2 py-0.5 bg-action-orange/10 text-action-orange rounded-full border border-action-orange/20">
+                        {reward.badge}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Stock bar */}
+                  <div className="space-y-1">
+                    <div className="flex justify-between items-center text-[10px] text-gray-400 font-bold">
+                      <span>STOCK DISPONIBLE</span>
+                      <span className="text-text-primary">{reward.stockText}</span>
+                    </div>
+                    <div className="w-full h-1.5 bg-gray-200 dark:bg-zinc-800 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full ${reward.color}`}
+                        style={{ width: `${reward.progress}%` }}
+                      ></div>
+                    </div>
+                  </div>
+
+                </div>
+              ))}
+            </div>
+
+            {/* Footer button */}
+            <button
+              onClick={() => toast.info("Lista de recompensas", { description: "Redirigiendo a catálogo de recompensas..." })}
+              className="w-full py-3 hover:bg-canvas-base border border-border text-text-primary font-bold rounded-xl text-xs transition-all flex items-center justify-center gap-1 cursor-pointer"
+            >
+              Ver Todas las Recompensas
+            </button>
+          </div>
+
         </div>
 
       </div>

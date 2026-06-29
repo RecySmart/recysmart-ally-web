@@ -1,5 +1,6 @@
 import { DefaultSession, DefaultUser } from "next-auth";
 import { JWT } from "next-auth/jwt";
+import { PartnerInfo } from "../schemas";
 
 export type AppRole = "ADMIN" | "RECYCLER" | "ALLY";
 
@@ -11,6 +12,7 @@ declare module "next-auth" {
         user: {
             id: string;
             role: AppRole | string;
+            partner?: PartnerInfo | null;
         } & DefaultSession["user"];
     }
 
@@ -19,6 +21,7 @@ declare module "next-auth" {
         id: string;
         role: AppRole | string;
         token: string;
+        partner?: PartnerInfo | null;
     }
 }
 
@@ -28,5 +31,6 @@ declare module "next-auth/jwt" {
         id: string;
         role: AppRole | string;
         accessToken: string;
+        partner?: PartnerInfo | null;
     }
 }

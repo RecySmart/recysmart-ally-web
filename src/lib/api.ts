@@ -1,7 +1,9 @@
-import { ErrorResponseSchema } from "../schemas";
-import { ApiError } from "../utils";
+import { ErrorResponseSchema } from "../schemas"
+import { ApiError } from "../utils"
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const API_URL = typeof window === 'undefined'
+    ? (process.env.BACKEND_URL ? `${process.env.BACKEND_URL}/api` : 'http://localhost:3001/api')
+    : process.env.NEXT_PUBLIC_API_URL;
 
 export async function apiFetch<T>(
     endpoint: string,
@@ -12,12 +14,12 @@ export async function apiFetch<T>(
         'Content-Type': 'application/json',
         ...(token && { Authorization: `Bearer ${token}` }),
         ...options.headers,
-    };
+    }
 
     const res = await fetch(`${API_URL}${endpoint}`, {
         ...options,
         headers,
-    });
+    })
 
     let json;
     try {

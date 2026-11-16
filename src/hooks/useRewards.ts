@@ -1,20 +1,28 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
 import { rewardService } from "../services/reward.service";
-import { CreateRewardFormData } from "../schemas";
+import type { CreateRewardFormData, Reward } from "../schemas";
 
-export function useCompanyRewards(page = 1, limit = 20) {
+export function useCompanyRewards(page: number | "all" = 1, limit = 20) {
   const { data: session } = useSession();
   const token = session?.accessToken;
   const partnerUserId = session?.user?.id;
 
   return useQuery({
     queryKey: ["active-rewards", partnerUserId, page, limit],
-    queryFn: () => {
+    queryFn: async () => {
       if (!token) {
         throw new Error("No token provided");
       }
-      return rewardService.getMyRewards(token, page, limit);
+      if (page !== "all") return rewardService.getMyRewards(token, page, limit);
+
+      const pageSize = 100;
+      const rewards = new Map<string, Reward>();
+      for (let current = 1; ; current++) {
+        const batch = await rewardService.getMyRewards(token, current, pageSize);
+        for (const reward of batch) rewards.set(reward.id, reward);
+        if (batch.length < pageSize) return [...rewards.values()];
+      }
     },
     enabled: !!token && !!partnerUserId,
   });

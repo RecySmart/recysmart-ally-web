@@ -40,7 +40,7 @@ export async function apiFetch<T>(
         }
         const error = ErrorResponseSchema.safeParse(json);
         if (error.success) {
-            throw new ApiError(error.data.message);
+            throw new ApiError(error.data.message, error.data.code);
         } else {
             throw new ApiError([json.message || "Error desconocido"]);
         }

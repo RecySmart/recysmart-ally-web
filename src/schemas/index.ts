@@ -5,8 +5,11 @@ export const SuccessResponseSchema = z.object({
 });
 
 export const ErrorResponseSchema = z.object({
-  message: z.array(z.string()),
+  message: z.union([z.string(), z.array(z.string())]).transform((message) =>
+    typeof message === "string" ? [message] : message,
+  ),
   statusCode: z.number(),
+  code: z.string().optional(),
 });
 
 export const DraftLogInSchema = z.object({
@@ -26,6 +29,7 @@ export const RewardSchema = z.object({
   totalStock: z.number(),
   remainingStock: z.number(),
   status: z.string(),
+  availabilityStatus: z.enum(["ACTIVE", "OUT_OF_STOCK", "DISCONTINUED", "EXPIRED"]).optional(),
   expiresAt: z.string().nullable(),
 });
 

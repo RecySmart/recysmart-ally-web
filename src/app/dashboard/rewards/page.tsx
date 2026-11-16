@@ -10,59 +10,51 @@ import {
 } from "@/hooks/useRewards";
 import { RewardCatalogCard } from "@/components/ui";
 import { Reward } from "@/schemas";
+import { ApiError } from "@/utils";
+import { getRewardAvailability } from "@/utils/reward-availability";
 import { CreateRewardDialog } from "./_components/CreateRewardDialog";
 
-type FilterTab = "Todos" | "Activos" | "Poco Stock" | "Pausados";
+const FILTERS = [
+  { key: "all", label: "Todas" },
+  { key: "isActive", label: "Activas" },
+  { key: "isLowStock", label: "Poco stock" },
+  { key: "expiresSoon", label: "Pronto a vencer" },
+  { key: "isExpired", label: "Vencidas" },
+  { key: "isPaused", label: "Pausadas" },
+] as const;
+
+type FilterTab = (typeof FILTERS)[number]["key"];
 
 export default function RewardsCatalogPage() {
   const pageSize = 20;
   const [page, setPage] = useState(1);
-  const { data: rewards, isLoading } = useCompanyRewards(page, pageSize);
+  const { data: rewards, isLoading } = useCompanyRewards("all");
   const setRewardStatus = useSetRewardStatus();
   const addRewardStock = useAddRewardStock();
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeTab, setActiveTab] = useState<FilterTab>("Todos");
+  const [activeTab, setActiveTab] = useState<FilterTab>("all");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingReward, setEditingReward] = useState<Reward | null>(null);
 
-  // Helper to categorize rewards
-  const getRewardCategory = (reward: Reward): FilterTab => {
-    const isPaused =
-      reward.status === "PAUSED" || reward.status === "DISCONTINUED";
-    const isUnlimited =
-      reward.totalStock >= 9999 || reward.remainingStock >= 9999;
-    const isLowStock = !isUnlimited && reward.remainingStock <= 5 && !isPaused;
-
-    if (isPaused) return "Pausados";
-    if (isLowStock) return "Poco Stock";
-    return "Activos";
-  };
-
-  // Metrics counts
-  const totalCount = rewards?.length ?? 0;
-  const activeCount =
-    rewards?.filter((r) => getRewardCategory(r) === "Activos").length ?? 0;
-  const lowStockCount =
-    rewards?.filter((r) => getRewardCategory(r) === "Poco Stock").length ?? 0;
-  const pausedCount =
-    rewards?.filter((r) => getRewardCategory(r) === "Pausados").length ?? 0;
-
-  // Filter rewards based on active tab and search query
-  const filteredRewards = rewards?.filter((reward) => {
-    const category = getRewardCategory(reward);
-    const matchesTab =
-      activeTab === "Todos" ||
-      (activeTab === "Activos" && category === "Activos") ||
-      (activeTab === "Poco Stock" && category === "Poco Stock") ||
-      (activeTab === "Pausados" && category === "Pausados");
-
+  const catalog = (rewards ?? []).map((reward) => ({
+    reward,
+    availability: getRewardAvailability(reward),
+  }));
+  const query = searchQuery.trim().toLowerCase();
+  const filteredRewards = catalog.filter(({ reward, availability }) => {
+    const matchesTab = activeTab === "all" || availability[activeTab];
     const matchesSearch =
-      reward.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (reward.description?.toLowerCase().includes(searchQuery.toLowerCase()) ??
-        false);
+      reward.title.toLowerCase().includes(query) ||
+      reward.description.toLowerCase().includes(query);
 
     return matchesTab && matchesSearch;
   });
+  const pageCount = Math.max(1, Math.ceil(filteredRewards.length / pageSize));
+  const currentPage = Math.min(page, pageCount);
+  const displayedRewards = filteredRewards.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
+  );
 
   // Action handlers
   const handleEdit = (reward: Reward) => {
@@ -83,11 +75,15 @@ export default function RewardsCatalogPage() {
           toast.success(
             updated.status === "ACTIVE"
               ? "Recompensa reactivada"
-              : updated.status === "OUT_OF_STOCK"
-                ? "Recompensa sin stock"
-                : "Recompensa pausada",
+              : "Recompensa pausada",
           ),
-        onError: (error) => toast.error(error.message),
+        onError: (error) => {
+          if (error instanceof ApiError && error.code === "REWARD_OUT_OF_STOCK") {
+            toast.error("Añade stock para reactivar la recompensa.");
+            return;
+          }
+          toast.error(error.message);
+        },
       },
     );
   };
@@ -144,7 +140,10 @@ export default function RewardsCatalogPage() {
               type="text"
               placeholder="Buscar recompensa..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setPage(1);
+              }}
               className="w-full h-11 px-4 border border-border rounded-xl bg-card text-sm text-text-primary placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-green/30 focus:border-brand-green transition-all"
             />
           </div>
@@ -162,53 +161,29 @@ export default function RewardsCatalogPage() {
 
       {/* 2. Filter tabs (horizontal scroll on mobile, flex row on desktop) */}
       <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none shrink-0 -mx-6 px-6 lg:mx-0 lg:px-0">
-        {/* Todos Tab */}
-        <button
-          onClick={() => setActiveTab("Todos")}
-          className={`px-4 py-2 rounded-full text-xs font-bold transition-all border shrink-0 cursor-pointer ${
-            activeTab === "Todos"
-              ? "bg-text-primary text-card border-text-primary"
-              : "bg-card text-gray-400 dark:text-gray-500 border-border hover:text-text-primary"
-          }`}
-        >
-          Todos ({totalCount})
-        </button>
-
-        {/* Activos Tab */}
-        <button
-          onClick={() => setActiveTab("Activos")}
-          className={`px-4 py-2 rounded-full text-xs font-bold transition-all border shrink-0 cursor-pointer ${
-            activeTab === "Activos"
-              ? "bg-text-primary text-card border-text-primary"
-              : "bg-card text-gray-400 dark:text-gray-500 border-border hover:text-text-primary"
-          }`}
-        >
-          Activos ({activeCount})
-        </button>
-
-        {/* Poco Stock Tab */}
-        <button
-          onClick={() => setActiveTab("Poco Stock")}
-          className={`px-4 py-2 rounded-full text-xs font-bold transition-all border shrink-0 cursor-pointer ${
-            activeTab === "Poco Stock"
-              ? "bg-text-primary text-card border-text-primary"
-              : "bg-card text-gray-400 dark:text-gray-500 border-border hover:text-text-primary"
-          }`}
-        >
-          Poco Stock ({lowStockCount})
-        </button>
-
-        {/* Pausados Tab */}
-        <button
-          onClick={() => setActiveTab("Pausados")}
-          className={`px-4 py-2 rounded-full text-xs font-bold transition-all border shrink-0 cursor-pointer ${
-            activeTab === "Pausados"
-              ? "bg-text-primary text-card border-text-primary"
-              : "bg-card text-gray-400 dark:text-gray-500 border-border hover:text-text-primary"
-          }`}
-        >
-          Pausados ({pausedCount})
-        </button>
+        {FILTERS.map(({ key, label }) => {
+          const count = catalog.filter(
+            ({ availability }) => key === "all" || availability[key],
+          ).length;
+          return (
+            <button
+              key={key}
+              type="button"
+              aria-pressed={activeTab === key}
+              onClick={() => {
+                setActiveTab(key);
+                setPage(1);
+              }}
+              className={`px-4 py-2 rounded-full text-xs font-bold transition-all border shrink-0 cursor-pointer ${
+                activeTab === key
+                  ? "bg-text-primary text-card border-text-primary"
+                  : "bg-card text-gray-400 dark:text-gray-500 border-border hover:text-text-primary"
+              }`}
+            >
+              {label} ({count})
+            </button>
+          );
+        })}
       </div>
 
       {/* 3. Grid of Catalog Cards (mobile-first grid spans) */}
@@ -244,7 +219,7 @@ export default function RewardsCatalogPage() {
               </div>
             </div>
           ))
-        ) : !filteredRewards || filteredRewards.length === 0 ? (
+        ) : filteredRewards.length === 0 ? (
           /* Empty Catalog view */
           <div className="col-span-full bg-card border border-border rounded-3xl p-12 text-center flex flex-col items-center justify-center space-y-3 min-h-75">
             <HelpCircle className="w-10 h-10 text-gray-400" />
@@ -260,10 +235,11 @@ export default function RewardsCatalogPage() {
           </div>
         ) : (
           /* Render actual dynamic catalog list cards */
-          filteredRewards.map((reward) => (
+          displayedRewards.map(({ reward, availability }) => (
             <RewardCatalogCard
               key={reward.id}
               reward={reward}
+              availability={availability}
               onEdit={handleEdit}
               onToggleStatus={handleToggleStatus}
               onAddStock={handleAddStock}
@@ -272,21 +248,23 @@ export default function RewardsCatalogPage() {
         )}
       </div>
 
-      {(page > 1 || (rewards?.length ?? 0) === pageSize) && (
+      {pageCount > 1 && (
         <div className="flex items-center justify-center gap-3">
           <button
             type="button"
-            disabled={page === 1 || isLoading}
-            onClick={() => setPage((current) => Math.max(1, current - 1))}
+            disabled={currentPage === 1 || isLoading}
+            onClick={() => setPage(currentPage - 1)}
             className="px-4 py-2 rounded-xl border border-border text-xs font-bold disabled:opacity-40"
           >
             Anterior
           </button>
-          <span className="text-xs font-bold text-gray-400">Página {page}</span>
+          <span className="text-xs font-bold text-gray-400">
+            Página {currentPage} de {pageCount}
+          </span>
           <button
             type="button"
-            disabled={(rewards?.length ?? 0) < pageSize || isLoading}
-            onClick={() => setPage((current) => current + 1)}
+            disabled={currentPage >= pageCount || isLoading}
+            onClick={() => setPage(currentPage + 1)}
             className="px-4 py-2 rounded-xl border border-border text-xs font-bold disabled:opacity-40"
           >
             Siguiente

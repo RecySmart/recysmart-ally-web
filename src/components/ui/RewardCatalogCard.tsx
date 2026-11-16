@@ -1,6 +1,13 @@
 import React from "react";
 import { Gift, Coffee, Cookie, Utensils, Ticket, ShoppingBag } from "lucide-react";
 import { Reward } from "../../schemas";
+import type { getRewardAvailability } from "../../utils/reward-availability";
+
+const expirationFormat = new Intl.DateTimeFormat("es-PE", {
+  dateStyle: "medium",
+  timeStyle: "short",
+  timeZone: "America/Lima",
+});
 
 function getRewardIcon(title: string) {
   const lower = title.toLowerCase();
@@ -14,6 +21,7 @@ function getRewardIcon(title: string) {
 
 interface RewardCatalogCardProps {
   reward: Reward;
+  availability: ReturnType<typeof getRewardAvailability>;
   onEdit?: (reward: Reward) => void;
   onToggleStatus?: (reward: Reward) => void;
   onAddStock?: (reward: Reward) => void;
@@ -22,16 +30,16 @@ interface RewardCatalogCardProps {
 
 export function RewardCatalogCard({
   reward,
+  availability,
   onEdit,
   onToggleStatus,
   onAddStock,
   className = "",
 }: RewardCatalogCardProps) {
-  const isPaused =
-    reward.status === "PAUSED" || reward.status === "DISCONTINUED";
+  const { isExpired, isPaused, isOutOfStock, isLowStock, expiresSoon } = availability;
   const isUnlimited =
     reward.totalStock >= 9999 || reward.remainingStock >= 9999;
-  const isLowStock = !isUnlimited && reward.remainingStock <= 5 && !isPaused;
+  const expiration = reward.expiresAt ? new Date(reward.expiresAt) : null;
 
   // Determine status label and badge color
   let statusLabel = "Activo";
@@ -39,13 +47,13 @@ export function RewardCatalogCard({
   let bannerClass = "bg-amber-50/20 dark:bg-amber-950/5";
   let progressColor = "bg-brand-green";
 
-  if (isPaused) {
-    statusLabel = "Pausado";
+  if (isExpired || isPaused || isOutOfStock) {
+    statusLabel = isExpired ? "Vencida" : isPaused ? "Pausada" : "Agotada";
     badgeClass = "bg-gray-500 text-white dark:bg-zinc-700";
     bannerClass = "bg-gray-100/50 dark:bg-zinc-900/10";
     progressColor = "bg-gray-300 dark:bg-zinc-800";
-  } else if (isLowStock) {
-    statusLabel = "Poco Stock";
+  } else if (expiresSoon || isLowStock) {
+    statusLabel = expiresSoon ? "Pronto a vencer" : "Poco stock";
     badgeClass = "bg-action-orange text-white";
     bannerClass = "bg-orange-50/20 dark:bg-orange-950/5";
     progressColor = "bg-action-orange";
@@ -103,6 +111,20 @@ export function RewardCatalogCard({
           </p>
         </div>
 
+        <p className="text-xs text-text-secondary">
+          {expiration && !Number.isNaN(expiration.getTime()) ? (
+            <>
+              {isExpired ? "Venció el " : "Vence el "}
+              <time dateTime={expiration.toISOString()}>
+                {expirationFormat.format(expiration)}
+              </time>
+              {" (hora de Lima)"}
+            </>
+          ) : (
+            "Sin vencimiento"
+          )}
+        </p>
+
         {/* Cost & Stock Metrics */}
         <div className="grid grid-cols-2 items-end pt-2">
           {/* User Cost */}
@@ -140,15 +162,34 @@ export function RewardCatalogCard({
 
       {/* 3. Card Footer Actions (Pills buttons at the bottom) */}
       <div className="border-t border-border px-6 py-4 bg-canvas-base/30 flex items-center justify-between gap-3 min-h-15">
-        {isPaused ? (
-          // Paused Actions
+        {isExpired ? (
           <button
-            onClick={() => onToggleStatus?.(reward)}
-            className="text-text-primary hover:text-brand-green font-bold text-xs cursor-pointer border border-border px-3 py-1.5 rounded-xl bg-card hover:bg-canvas-base active:scale-95 transition-all shadow-2xs"
+            type="button"
+            onClick={() => onEdit?.(reward)}
+            className="text-text-primary font-bold text-xs cursor-pointer px-3 py-1.5 rounded-xl"
           >
-            Reactivar Oferta
+            Editar
           </button>
-        ) : isLowStock ? (
+        ) : isPaused ? (
+          <>
+            <button
+              type="button"
+              onClick={() => onToggleStatus?.(reward)}
+              className="text-text-primary hover:text-brand-green font-bold text-xs cursor-pointer border border-border px-3 py-1.5 rounded-xl bg-card"
+            >
+              Reactivar Oferta
+            </button>
+            {isOutOfStock && (
+              <button
+                type="button"
+                onClick={() => onAddStock?.(reward)}
+                className="text-brand-green font-bold text-xs cursor-pointer px-3 py-1.5 rounded-xl"
+              >
+                Añadir Stock
+              </button>
+            )}
+          </>
+        ) : isLowStock || isOutOfStock ? (
           // Low Stock Actions
           <>
             <button
